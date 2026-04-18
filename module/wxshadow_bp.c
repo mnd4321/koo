@@ -120,7 +120,7 @@ static int create_shadow_page_common(void *mm, unsigned long page_addr,
     orig_pfn = (*pte >> PAGE_SHIFT) & 0xFFFFFFFFFUL;
     page_info->pfn_original = orig_pfn;
     page_info->pte_original = *pte;
-    *out_orig_kaddr = pfn_to_kaddr(orig_pfn);
+    *out_orig_kaddr = wxshadow_pfn_to_kaddr(orig_pfn);
     if (!is_kva((unsigned long)*out_orig_kaddr)) {
         pr_err("wxshadow: [%s] invalid orig_kaddr %px for pfn %lx\n",
                op, *out_orig_kaddr, orig_pfn);
@@ -230,7 +230,7 @@ static int refresh_dormant_shadow_page(struct wxshadow_page *page_info,
     }
 
     orig_pfn = (*pte >> PAGE_SHIFT) & 0xFFFFFFFFFUL;
-    orig_kaddr = pfn_to_kaddr(orig_pfn);
+    orig_kaddr = wxshadow_pfn_to_kaddr(orig_pfn);
     if (!is_kva((unsigned long)orig_kaddr)) {
         pr_err("wxshadow: [%s] invalid orig_kaddr %px for dormant page %lx pfn %lx\n",
                op, orig_kaddr, page_addr, orig_pfn);
@@ -657,7 +657,7 @@ static int wxshadow_rebuild_shadow_range(struct wxshadow_page *page_info,
     }
     spin_unlock(&global_lock);
 
-    original_kaddr = (const char *)pfn_to_kaddr(original_pfn);
+    original_kaddr = (const char *)wxshadow_pfn_to_kaddr(original_pfn);
     if (!is_kva((unsigned long)original_kaddr)) {
         kfunc_kfree(ops);
         return -14;
@@ -1058,7 +1058,7 @@ static void *copy_from_user_via_pte(void __user *ubuf, unsigned long len)
     }
 
     buf_pfn = (*buf_pte >> PAGE_SHIFT) & 0xFFFFFFFFFUL;
-    buf_kaddr = pfn_to_kaddr(buf_pfn);
+    buf_kaddr = wxshadow_pfn_to_kaddr(buf_pfn);
     if (!is_kva((unsigned long)buf_kaddr)) {
         kfunc_mmput(caller_mm);
         return NULL;

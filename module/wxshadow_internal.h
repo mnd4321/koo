@@ -299,7 +299,7 @@ static inline unsigned long kaddr_to_pfn(unsigned long vaddr)
     return kaddr_to_phys(vaddr) >> PAGE_SHIFT;
 }
 
-static inline void *pfn_to_kaddr(unsigned long pfn)
+static inline void *wxshadow_pfn_to_kaddr(unsigned long pfn)
 {
     unsigned long pa = pfn << PAGE_SHIFT;
 

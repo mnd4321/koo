@@ -785,7 +785,7 @@ static bool wxshadow_can_resume_stale_brk(void *mm, unsigned long pc)
         return false;
 
     pfn = (pte_val & 0x0000FFFFFFFFF000UL) >> PAGE_SHIFT;
-    page_kaddr = pfn_to_kaddr(pfn);
+    page_kaddr = wxshadow_pfn_to_kaddr(pfn);
     if (!is_kva((unsigned long)page_kaddr))
         return false;
 

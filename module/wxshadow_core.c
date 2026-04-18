@@ -516,7 +516,7 @@ int wxshadow_restore_shadow_ranges(struct wxshadow_page *page)
     page_addr = page->page_addr;
     spin_unlock(&global_lock);
 
-    original_kaddr = (const char *)pfn_to_kaddr(original_pfn);
+    original_kaddr = (const char *)wxshadow_pfn_to_kaddr(original_pfn);
     if (!is_kva((unsigned long)original_kaddr))
         return -14;
 
