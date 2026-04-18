@@ -1,0 +1,116 @@
+name: Build External LKM
+
+on:
+  workflow_dispatch:
+    inputs:
+      kmi:
+        description: Android GKI KMI version
+        required: true
+        default: android15-6.6
+        type: choice
+        options:
+          - android12-5.10
+          - android13-5.10
+          - android13-5.15
+          - android14-5.15
+          - android14-6.1
+          - android15-6.6
+          - android16-6.12
+
+jobs:
+  build-lkm:
+    name: Build hello.ko for ${{ inputs.kmi }}
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/ylarod/ddk-min:${{ inputs.kmi }}-20260313
+      options: --privileged
+
+    steps:
+      - name: Checkout current repository
+        uses: actions/checkout@v4
+
+      - name: Find kernel build directory
+        id: find-kbuild
+        run: |
+          set -eux
+
+          search_roots=""
+          for root in /lib/modules /workspace /opt /android /kernel /build; do
+            if [ -e "$root" ]; then
+              search_roots="$search_roots $root"
+            fi
+          done
+
+          if [ -z "$search_roots" ]; then
+            echo "No search roots found."
+            exit 1
+          fi
+
+          KOUT=""
+          for symvers in $(find $search_roots -maxdepth 6 -type f -name Module.symvers 2>/dev/null); do
+            if [ -s "$symvers" ]; then
+              KOUT="$(dirname "$symvers")"
+              break
+            fi
+          done
+
+          KDIR=""
+          if [ -n "$KOUT" ]; then
+            probe="$KOUT"
+            while [ "$probe" != "/" ]; do
+              if [ -f "$probe/Makefile" ] && grep -q "KERNELRELEASE" "$probe/Makefile"; then
+                KDIR="$probe"
+                break
+              fi
+              probe="$(dirname "$probe")"
+            done
+          fi
+
+          if [ -z "$KDIR" ]; then
+            for makefile in $(find $search_roots -maxdepth 4 -type f -name Makefile 2>/dev/null); do
+              dir="$(dirname "$makefile")"
+              if grep -q "KERNELRELEASE" "$dir/Makefile"; then
+                KDIR="$dir"
+                break
+              fi
+            done
+          fi
+
+          if [ -n "$KDIR" ]; then
+            echo "KDIR=$KDIR" >> "$GITHUB_OUTPUT"
+          fi
+
+          if [ -n "$KOUT" ]; then
+            echo "KOUT=$KOUT" >> "$GITHUB_OUTPUT"
+          fi
+
+          if [ -n "$KDIR" ]; then
+            exit 0
+          fi
+
+          echo "Unable to find a prepared kernel build directory."
+          find $search_roots -maxdepth 6 -type f \( -name Makefile -o -name Module.symvers \) 2>/dev/null || true
+          exit 1
+
+      - name: Build external module
+        run: |
+          set -eux
+          EXTRA_ARGS=""
+          if [ -n "${{ steps.find-kbuild.outputs.KOUT }}" ] && [ "${{ steps.find-kbuild.outputs.KOUT }}" != "${{ steps.find-kbuild.outputs.KDIR }}" ]; then
+            EXTRA_ARGS="KBUILD_OUTPUT=${{ steps.find-kbuild.outputs.KOUT }}"
+          fi
+          make -C "${{ steps.find-kbuild.outputs.KDIR }}" M="$GITHUB_WORKSPACE/module" CC=clang LLVM=1 $EXTRA_ARGS modules
+
+      - name: Collect artifact
+        run: |
+          set -eux
+          mkdir -p out
+          cp "module/hello.ko" "out/${{ inputs.kmi }}_hello.ko"
+          llvm-strip -d "out/${{ inputs.kmi }}_hello.ko"
+          ls -lh out
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.kmi }}-lkm
+          path: out/${{ inputs.kmi }}_hello.ko
