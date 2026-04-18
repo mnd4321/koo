@@ -1,4 +1,5 @@
 #include "wxshadow_compat.h"
+#include <linux/version.h>
 
 struct task_struct_offset_info task_struct_offset = {
     .tasks_offset = offsetof(struct task_struct, tasks),
@@ -30,6 +31,15 @@ struct wx_hook_ret_data {
 #define WX_MAX_HOOK_SLOTS 48
 static struct wx_hook_slot wx_hook_slots[WX_MAX_HOOK_SLOTS];
 static DEFINE_SPINLOCK(wx_hook_slots_lock);
+
+static inline struct kretprobe *wx_ri_get_rp(struct kretprobe_instance *ri)
+{
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 7, 0)
+    return ri->rp;
+#else
+    return ri->rph ? ri->rph->rp : NULL;
+#endif
+}
 
 static void wxshadow_fill_args(hook_fargs8_t *args, struct pt_regs *regs)
 {
@@ -110,8 +120,13 @@ static int wx_kprobe_pre_handler(struct kprobe *kp, struct pt_regs *regs)
 
 static int wx_kret_entry_handler(struct kretprobe_instance *ri, struct pt_regs *regs)
 {
-    struct wx_hook_slot *slot = container_of(ri->rp, struct wx_hook_slot, krp);
+    struct kretprobe *rp = wx_ri_get_rp(ri);
+    struct wx_hook_slot *slot;
     struct wx_hook_ret_data *data = (struct wx_hook_ret_data *)ri->data;
+
+    if (!rp)
+        return 0;
+    slot = container_of(rp, struct wx_hook_slot, krp);
 
     wxshadow_fill_args(&data->args, regs);
     if (slot->before)
@@ -127,9 +142,14 @@ static int wx_kret_entry_handler(struct kretprobe_instance *ri, struct pt_regs *
 
 static int wx_kret_handler(struct kretprobe_instance *ri, struct pt_regs *regs)
 {
-    struct wx_hook_slot *slot = container_of(ri->rp, struct wx_hook_slot, krp);
+    struct kretprobe *rp = wx_ri_get_rp(ri);
+    struct wx_hook_slot *slot;
     struct wx_hook_ret_data *data = (struct wx_hook_ret_data *)ri->data;
     hook_fargs8_t args = data->args;
+
+    if (!rp)
+        return 0;
+    slot = container_of(rp, struct wx_hook_slot, krp);
 
     args.ret = wxshadow_get_return(regs);
     if (slot->after)
