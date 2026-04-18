@@ -133,7 +133,7 @@ static inline void *wxshadow_pmd_offset(void *pud, unsigned long addr)
 /*
  * pmd_page_vaddr - get virtual address of PTE table from PMD entry
  */
-static inline unsigned long pmd_page_vaddr(u64 pmd)
+static inline unsigned long wxshadow_pmd_page_vaddr(u64 pmd)
 {
     unsigned long pa = pmd & 0x0000FFFFFFFFF000UL;
     return phys_to_virt_safe(pa);
@@ -152,7 +152,7 @@ static inline u64 *pte_offset_kernel_local(void *pmd, unsigned long addr)
     if (!safe_read_u64((unsigned long)pmd, &pmd_val))
         return NULL;
 
-    pte_table_vaddr = pmd_page_vaddr(pmd_val);
+    pte_table_vaddr = wxshadow_pmd_page_vaddr(pmd_val);
     if (!is_kva(pte_table_vaddr))
         return NULL;
 
