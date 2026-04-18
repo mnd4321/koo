@@ -1359,26 +1359,12 @@ static long wxshadow_init(const char *args, const char *event, void *__user rese
         return ret;
     }
 
-    /* Scan mm_struct offsets */
-    ret = scan_mm_struct_offsets();
-    if (ret < 0) {
-        pr_err("wxshadow: failed to scan mm_struct offsets\n");
-        return ret;
-    }
-
-    /* Scan vm_area_struct offsets */
-    ret = scan_vma_struct_offsets();
-    if (ret < 0) {
-        pr_err("wxshadow: failed to scan vma offsets\n");
-        return ret;
-    }
-
-    /* Detect task_struct offsets */
-    ret = detect_task_struct_offsets();
-    if (ret < 0) {
-        pr_err("wxshadow: failed to detect task_struct offsets\n");
-        return ret;
-    }
+    /*
+     * External LKM build is compiled against target kernel headers, so
+     * task/mm/vma offsets are known at build-time via offsetof().
+     * Runtime probing here is high-risk on vendor kernels and can crash.
+     */
+    pr_info("wxshadow: skipping runtime mm/vma/task offset scans in external LKM mode\n");
 
     /* Only scan mm->context.id if we need TLBI instruction fallback */
     if (!kfunc_flush_tlb_page && !kfunc___flush_tlb_range) {
@@ -1388,6 +1374,8 @@ static long wxshadow_init(const char *args, const char *event, void *__user rese
             pr_info("wxshadow: context.id scan deferred (will retry on first command)\n");
         }
     }
+
+    pr_info("wxshadow: runtime init entering hook setup\n");
 
     /* page_list already initialized by LIST_HEAD() macro */
 
