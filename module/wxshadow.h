@@ -11,7 +11,6 @@
 #include <linux/list.h>
 #include <linux/atomic.h>
 #include <linux/ptrace.h>
-#include <stdbool.h>
 
 /* prctl options for wxshadow */
 #define PR_WXSHADOW_SET_BP      0x57580001  /* WX + 1 */
