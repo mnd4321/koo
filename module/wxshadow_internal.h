@@ -17,6 +17,7 @@
 #include <linux/smp.h>
 #include <linux/mm_inline.h>
 #include <linux/pgtable.h>
+#include <asm/esr.h>
 #include <asm/cacheflush.h>
 #include <asm/tlbflush.h>
 
@@ -138,22 +139,6 @@ extern atomic_t wx_in_flight;
 #define WX_HANDLER_EXIT()  atomic_dec(&wx_in_flight)
 
 #define WXSHADOW_RELEASE_WAIT_LOOPS 2000000
-
-/* ========== ESR parsing macros ========== */
-
-#define ESR_ELx_EC_SHIFT        26
-#define ESR_ELx_EC_MASK         (0x3FUL << ESR_ELx_EC_SHIFT)
-#define ESR_ELx_EC(esr)         (((esr) & ESR_ELx_EC_MASK) >> ESR_ELx_EC_SHIFT)
-#define ESR_ELx_ISS_MASK        0x01FFFFFFUL
-#define ESR_ELx_WNR_SHIFT       6
-#define ESR_ELx_WNR             (1UL << ESR_ELx_WNR_SHIFT)
-#define ESR_ELx_S1PTW_SHIFT     7
-#define ESR_ELx_S1PTW           (1UL << ESR_ELx_S1PTW_SHIFT)
-#define ESR_ELx_CM_SHIFT        8
-#define ESR_ELx_CM              (1UL << ESR_ELx_CM_SHIFT)
-
-#define ESR_ELx_EC_IABT_LOW     0x20
-#define ESR_ELx_EC_DABT_LOW     0x24
 
 static inline bool is_el0_instruction_abort(unsigned int esr)
 {
@@ -388,7 +373,7 @@ int wxshadow_restore_shadow_ranges(struct wxshadow_page *page);
 
 u64 *get_user_pte(void *mm, unsigned long addr, void **ptlp);
 int wxshadow_try_split_pmd(void *mm, void *vma, unsigned long addr);
-void pte_unmap_unlock(u64 *pte, void *ptl);
+void wxshadow_pte_unmap_unlock(u64 *pte, void *ptl);
 void wxshadow_flush_tlb_page(void *vma, unsigned long uaddr);
 u64 make_pte(unsigned long pfn, u64 prot);
 int wxshadow_page_activate_shadow(struct wxshadow_page *page, void *vma,

@@ -307,7 +307,7 @@ u64 *get_user_pte(void *mm, unsigned long addr, void **ptlp)
 /*
  * Release PTE (no-op in lockless mode)
  */
-void pte_unmap_unlock(u64 *pte, void *ptl)
+void wxshadow_pte_unmap_unlock(u64 *pte, void *ptl)
 {
     (void)pte;
     (void)ptl;
