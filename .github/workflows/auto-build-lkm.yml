@@ -119,7 +119,14 @@ jobs:
             NDK_DIR="$RUNNER_TEMP/android-ndk-${NDK_VER}"
             mkdir -p "$NDK_DIR"
             curl -fsSL -o "$RUNNER_TEMP/android-ndk.zip" "https://dl.google.com/android/repository/android-ndk-${NDK_VER}-linux.zip"
-            unzip -q "$RUNNER_TEMP/android-ndk.zip" -d "$NDK_DIR"
+            if command -v unzip >/dev/null 2>&1; then
+              unzip -q "$RUNNER_TEMP/android-ndk.zip" -d "$NDK_DIR"
+            elif command -v python3 >/dev/null 2>&1; then
+              python3 -c 'import sys,zipfile; zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])' "$RUNNER_TEMP/android-ndk.zip" "$NDK_DIR"
+            else
+              echo "Need unzip or python3 to extract Android NDK zip."
+              exit 1
+            fi
             NDK_CC="$(find "$NDK_DIR" -type f -path "*/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android${API}-clang" | head -n 1)"
             if [ -n "$NDK_CC" ]; then
               NDK_BIN="$(dirname "$NDK_CC")"
