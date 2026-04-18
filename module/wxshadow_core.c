@@ -141,6 +141,7 @@ DEFINE_SPINLOCK(global_lock);
  * ensure no module code is executing before we return from exit().
  */
 atomic_t wx_in_flight = ATOMIC_INIT(0);
+bool wxshadow_breakpoint_enabled;
 
 /* ========== BRK/Step hook structures ========== */
 
@@ -1344,6 +1345,9 @@ static void wx_unregister_brk_step_hooks(void)
 static long wxshadow_init(const char *args, const char *event, void *__user reserved)
 {
     int ret;
+    bool can_use_register_hooks;
+    bool can_use_direct_hooks;
+    bool can_enable_brk_step;
 
     pr_info("wxshadow: initializing...\n");
 
@@ -1386,9 +1390,16 @@ static long wxshadow_init(const char *args, const char *event, void *__user rese
 
     /* page_list already initialized by LIST_HEAD() macro */
 
-    /* Register BRK/step handlers */
-    /* NOTE: Temporarily prefer REGISTER method for testing */
-    if (kfunc_register_user_break_hook && kfunc_register_user_step_hook) {
+    can_use_register_hooks =
+        kfunc_register_user_break_hook && kfunc_register_user_step_hook;
+    can_use_direct_hooks = kfunc_brk_handler && kfunc_single_step_handler;
+    can_enable_brk_step = wxshadow_has_single_step_api() &&
+                          (can_use_register_hooks || can_use_direct_hooks);
+
+    wxshadow_breakpoint_enabled = false;
+
+    /* Register BRK/step handlers when supported by this kernel */
+    if (can_enable_brk_step && can_use_register_hooks) {
         /* Method 1: register_user_*_hook API (testing priority) */
         pr_info("wxshadow: using register_user_*_hook API (testing priority)\n");
 
@@ -1405,7 +1416,8 @@ static long wxshadow_init(const char *args, const char *event, void *__user rese
         pr_info("wxshadow: registered step hook\n");
 
         hook_method = WX_HOOK_METHOD_REGISTER;
-    } else if (kfunc_brk_handler && kfunc_single_step_handler) {
+        wxshadow_breakpoint_enabled = true;
+    } else if (can_enable_brk_step && can_use_direct_hooks) {
         /* Method 2: Direct hook (fallback) */
         pr_info("wxshadow: using direct hook method (fallback)\n");
 
@@ -1427,9 +1439,10 @@ static long wxshadow_init(const char *args, const char *event, void *__user rese
         pr_info("wxshadow: hooked single_step_handler\n");
 
         hook_method = WX_HOOK_METHOD_DIRECT;
+        wxshadow_breakpoint_enabled = true;
     } else {
-        pr_err("wxshadow: no hook method available\n");
-        return -1;
+        pr_warn("wxshadow: breakpoint engine disabled (single-step or BRK hook capability unavailable)\n");
+        hook_method = WX_HOOK_METHOD_NONE;
     }
 
     /* Hook do_page_fault for read/exec fault handling */
@@ -1458,6 +1471,7 @@ static long wxshadow_init(const char *args, const char *event, void *__user rese
             wx_unregister_brk_step_hooks();
         }
         hook_method = WX_HOOK_METHOD_NONE;
+        wxshadow_breakpoint_enabled = false;
         return -1;
     } else {
         pr_info("wxshadow: hooked exit_mmap for proper cleanup\n");
@@ -1503,6 +1517,9 @@ static long wxshadow_init(const char *args, const char *event, void *__user rese
     if (!kfunc_dup_mmap && !kfunc_uprobe_dup_mmap) {
         pr_warn("wxshadow: fork protection DISABLED (precise dup_mmap hooks unavailable; copy_process fallback intentionally disabled because it is too broad)\n");
     }
+
+    if (!wxshadow_breakpoint_enabled)
+        pr_warn("wxshadow: SET_BP/SET_REG/DEL_BP commands disabled on this kernel\n");
 
     pr_info("wxshadow: W^X shadow memory module loaded\n");
     pr_info("wxshadow: command path is provided by hello membarrier protocol\n");
@@ -1627,6 +1644,7 @@ static long wxshadow_exit(void *__user reserved)
         pr_info("wxshadow: unregistered break/step hooks (register API, phase 3)\n");
     }
     hook_method = WX_HOOK_METHOD_NONE;
+    wxshadow_breakpoint_enabled = false;
 
     /*
      * Phase 4: Unhook do_page_fault.

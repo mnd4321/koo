@@ -1247,6 +1247,8 @@ static long wxshadow_dispatch_cmd(unsigned long option, unsigned long arg2,
 
     switch (option) {
     case PR_WXSHADOW_SET_BP:
+        if (!wxshadow_breakpoint_enabled)
+            return -EOPNOTSUPP;
         pid = (pid_t)arg2;
         mm = resolve_pid_to_mm(pid);
         if (!mm)
@@ -1256,6 +1258,8 @@ static long wxshadow_dispatch_cmd(unsigned long option, unsigned long arg2,
         return ret;
 
     case PR_WXSHADOW_SET_REG:
+        if (!wxshadow_breakpoint_enabled)
+            return -EOPNOTSUPP;
         pid = (pid_t)arg2;
         mm = resolve_pid_to_mm(pid);
         if (!mm)
@@ -1265,6 +1269,8 @@ static long wxshadow_dispatch_cmd(unsigned long option, unsigned long arg2,
         return ret;
 
     case PR_WXSHADOW_DEL_BP:
+        if (!wxshadow_breakpoint_enabled)
+            return -EOPNOTSUPP;
         pid = (pid_t)arg2;
         mm = resolve_pid_to_mm(pid);
         if (!mm)

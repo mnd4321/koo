@@ -270,16 +270,14 @@ int resolve_symbols(void)
         kfunc_kernel_disable_single_step = (typeof(kfunc_kernel_disable_single_step))
             lookup_name_safe("kernel_disable_single_step");
     }
-    if (!wxshadow_has_single_step_api()) {
-        pr_err("wxshadow: single-step API not found (tried user_* and kernel_*)\n");
-        return -1;
-    }
     if (kfunc_user_enable_single_step && kfunc_user_disable_single_step) {
         pr_info("wxshadow: single-step API: user_* (%px/%px)\n",
                 kfunc_user_enable_single_step, kfunc_user_disable_single_step);
-    } else {
+    } else if (kfunc_kernel_enable_single_step && kfunc_kernel_disable_single_step) {
         pr_info("wxshadow: single-step API: kernel_* (%px/%px)\n",
                 kfunc_kernel_enable_single_step, kfunc_kernel_disable_single_step);
+    } else {
+        pr_warn("wxshadow: single-step API not found (tried user_* and kernel_*)\n");
     }
 
     /* ===== BRK/Step hooks ===== */
@@ -308,8 +306,7 @@ int resolve_symbols(void)
     /* Check if at least one method is available */
     if (!(kfunc_brk_handler && kfunc_single_step_handler) &&
         !(kfunc_register_user_break_hook && kfunc_register_user_step_hook)) {
-        pr_err("wxshadow: neither direct hook nor register API available\n");
-        return -1;
+        pr_warn("wxshadow: neither direct hook nor register API available\n");
     }
     pr_info("wxshadow: [9/12] done\n");
 

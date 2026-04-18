@@ -136,6 +136,7 @@ extern int tlb_flush_mode;
 extern struct list_head page_list;
 extern spinlock_t global_lock;
 extern atomic_t wx_in_flight;
+extern bool wxshadow_breakpoint_enabled;
 
 #define WX_HANDLER_ENTER() atomic_inc(&wx_in_flight)
 #define WX_HANDLER_EXIT()  atomic_dec(&wx_in_flight)
