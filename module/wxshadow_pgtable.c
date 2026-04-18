@@ -14,7 +14,7 @@
 /*
  * pte_index - calculate PTE index from address
  */
-static inline unsigned long pte_index(unsigned long addr)
+static inline unsigned long wxshadow_pte_index(unsigned long addr)
 {
     return (addr >> PAGE_SHIFT) & (512 - 1);  /* PTRS_PER_PTE = 512 for 4K pages */
 }
@@ -27,21 +27,21 @@ static inline unsigned long pte_index(unsigned long addr)
  *   PMD: bits 29:21 (pmd_shift = 21)
  *   PTE: bits 20:12 (pte_shift = 12)
  */
-static inline unsigned long pgd_index(unsigned long addr)
+static inline unsigned long wxshadow_pgd_index(unsigned long addr)
 {
     int pxd_bits = wx_page_shift - 3;
     int pgdir_shift = wx_page_shift + (wx_page_level - 1) * pxd_bits;
     return (addr >> pgdir_shift) & ((1UL << pxd_bits) - 1);
 }
 
-static inline unsigned long pud_index(unsigned long addr)
+static inline unsigned long wxshadow_pud_index(unsigned long addr)
 {
     int pxd_bits = wx_page_shift - 3;
     int pud_shift = wx_page_shift + (wx_page_level - 2) * pxd_bits;
     return (addr >> pud_shift) & ((1UL << pxd_bits) - 1);
 }
 
-static inline unsigned long pmd_index(unsigned long addr)
+static inline unsigned long wxshadow_pmd_index(unsigned long addr)
 {
     int pxd_bits = wx_page_shift - 3;
     int pmd_shift = wx_page_shift + 1 * pxd_bits;
@@ -54,12 +54,12 @@ static inline unsigned long pmd_index(unsigned long addr)
 #define PXD_TYPE_SECT   0x1UL   /* Block/Section entry */
 #define PXD_TYPE_TABLE  0x3UL   /* Table entry */
 
-static inline bool pmd_sect(u64 pmd)
+static inline bool wxshadow_pmd_sect(u64 pmd)
 {
     return (pmd & PXD_TYPE_MASK) == PXD_TYPE_SECT;
 }
 
-static inline bool pmd_table(u64 pmd)
+static inline bool wxshadow_pmd_table(u64 pmd)
 {
     return (pmd & PXD_TYPE_MASK) == PXD_TYPE_TABLE;
 }
@@ -82,7 +82,7 @@ static inline void *wxshadow_pgd_offset(void *mm, unsigned long addr)
 {
     void *pgd = mm_pgd(mm);
     if (!pgd) return NULL;
-    return (void *)((u64 *)pgd + pgd_index(addr));
+    return (void *)((u64 *)pgd + wxshadow_pgd_index(addr));
 }
 
 /*
@@ -104,7 +104,7 @@ static inline void *wxshadow_pud_offset(void *p4d, unsigned long addr)
     if (!is_kva(pud_base))
         return NULL;
 
-    return (void *)((u64 *)pud_base + pud_index(addr));
+    return (void *)((u64 *)pud_base + wxshadow_pud_index(addr));
 }
 
 /*
@@ -127,7 +127,7 @@ static inline void *wxshadow_pmd_offset(void *pud, unsigned long addr)
     pmd_base = pxd_page_vaddr(pud_val);
     if (!is_kva(pmd_base))
         return NULL;
-    return (void *)((u64 *)pmd_base + pmd_index(addr));
+    return (void *)((u64 *)pmd_base + wxshadow_pmd_index(addr));
 }
 
 /*
@@ -156,7 +156,7 @@ static inline u64 *pte_offset_kernel_local(void *pmd, unsigned long addr)
     if (!is_kva(pte_table_vaddr))
         return NULL;
 
-    return (u64 *)(pte_table_vaddr + pte_index(addr) * sizeof(u64));
+    return (u64 *)(pte_table_vaddr + wxshadow_pte_index(addr) * sizeof(u64));
 }
 
 /* ========== PMD split (huge page → PTE table) ========== */
@@ -205,7 +205,7 @@ int wxshadow_try_split_pmd(void *mm, void *vma, unsigned long addr)
         return 0;
 
     /* Not a block mapping — nothing to do */
-    if (!pmd_sect(pmd_val))
+    if (!wxshadow_pmd_sect(pmd_val))
         return 0;
 
     if (!kfunc___split_huge_pmd) {
@@ -226,7 +226,7 @@ int wxshadow_try_split_pmd(void *mm, void *vma, unsigned long addr)
     /* Verify split succeeded */
     if (!safe_read_u64((unsigned long)pmd, &pmd_val))
         return -14;
-    if (pmd_sect(pmd_val)) {
+    if (wxshadow_pmd_sect(pmd_val)) {
         pr_err("wxshadow: PMD still block after __split_huge_pmd for addr %lx\n", addr);
         return -1;
     }
@@ -283,11 +283,11 @@ u64 *get_user_pte(void *mm, unsigned long addr, void **ptlp)
         return NULL;
 
     /* Block mapping: caller should have called wxshadow_try_split_pmd() first */
-    if (pmd_sect(pmd_val)) {
+    if (wxshadow_pmd_sect(pmd_val)) {
         pr_warn("wxshadow: addr 0x%lx is PMD block, call wxshadow_try_split_pmd() first\n", addr);
         return NULL;
     }
-    if (!pmd_table(pmd_val)) {
+    if (!wxshadow_pmd_table(pmd_val)) {
         pr_warn("wxshadow: invalid PMD type for address 0x%lx: 0x%llx\n", addr, pmd_val);
         return NULL;
     }
@@ -317,7 +317,7 @@ void wxshadow_pte_unmap_unlock(u64 *pte, void *ptl)
 /*
  * set_pte - write PTE value with proper barriers
  */
-static inline void set_pte(u64 *ptep, u64 pte)
+static inline void wxshadow_set_pte_local(u64 *ptep, u64 pte)
 {
     *(volatile u64 *)ptep = pte;
 }
@@ -330,7 +330,7 @@ static inline void set_pte(u64 *ptep, u64 pte)
 static void wxshadow_set_pte_at_raw(void *mm, unsigned long addr, u64 *ptep,
                                     u64 pte)
 {
-    set_pte(ptep, pte);
+    wxshadow_set_pte_local(ptep, pte);
 }
 
 /*
