@@ -101,16 +101,65 @@ jobs:
           fi
           make -C "${{ steps.find-kbuild.outputs.KDIR }}" M="$GITHUB_WORKSPACE/module" CC=clang LLVM=1 $EXTRA_ARGS modules
 
+      - name: Prepare NDK toolchain for loader
+        run: |
+          set -eux
+          API=21
+          NDK_BIN=""
+
+          for base in "${ANDROID_NDK_HOME:-}" "${ANDROID_NDK_ROOT:-}" /opt/android-ndk* /opt/android-sdk/ndk/* /usr/lib/android-sdk/ndk/*; do
+            [ -n "$base" ] || continue
+            [ -d "$base" ] || continue
+            cand="$base/toolchains/llvm/prebuilt/linux-x86_64/bin"
+            if [ -x "$cand/aarch64-linux-android${API}-clang" ]; then
+              NDK_BIN="$cand"
+              break
+            fi
+          done
+
+          if [ -z "$NDK_BIN" ]; then
+            NDK_VER="r27c"
+            NDK_DIR="$RUNNER_TEMP/android-ndk-${NDK_VER}"
+            mkdir -p "$NDK_DIR"
+            curl -fsSL -o "$RUNNER_TEMP/android-ndk.zip" "https://dl.google.com/android/repository/android-ndk-${NDK_VER}-linux.zip"
+            unzip -q "$RUNNER_TEMP/android-ndk.zip" -d "$NDK_DIR"
+            NDK_CC="$(find "$NDK_DIR" -type f -path "*/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android${API}-clang" | head -n 1)"
+            if [ -n "$NDK_CC" ]; then
+              NDK_BIN="$(dirname "$NDK_CC")"
+            fi
+          fi
+
+          if [ -z "$NDK_BIN" ] || [ ! -x "$NDK_BIN/aarch64-linux-android${API}-clang" ]; then
+            echo "Failed to prepare Android NDK clang toolchain."
+            exit 1
+          fi
+
+          echo "LOADER_CC=$NDK_BIN/aarch64-linux-android${API}-clang" >> "$GITHUB_ENV"
+          echo "LOADER_STRIP=$NDK_BIN/llvm-strip" >> "$GITHUB_ENV"
+
+      - name: Build loader tools (NDK)
+        run: |
+          set -eux
+          make -C "$GITHUB_WORKSPACE/loader" clean
+          make -C "$GITHUB_WORKSPACE/loader" CC="$LOADER_CC"
+
       - name: Collect artifact
         run: |
           set -eux
           mkdir -p out
           cp "module/hello.ko" "out/${{ inputs.kmi }}_hello.ko"
+          cp "loader/init_module_loader" "out/${{ inputs.kmi }}_init_module_loader_arm64"
+          cp "loader/hello_comm_test" "out/${{ inputs.kmi }}_hello_comm_test_arm64"
           llvm-strip -d "out/${{ inputs.kmi }}_hello.ko"
+          "$LOADER_STRIP" "out/${{ inputs.kmi }}_init_module_loader_arm64" || true
+          "$LOADER_STRIP" "out/${{ inputs.kmi }}_hello_comm_test_arm64" || true
           ls -lh out
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ inputs.kmi }}-lkm
-          path: out/${{ inputs.kmi }}_hello.ko
+          path: |
+            out/${{ inputs.kmi }}_hello.ko
+            out/${{ inputs.kmi }}_init_module_loader_arm64
+            out/${{ inputs.kmi }}_hello_comm_test_arm64

@@ -7,11 +7,14 @@ What this workflow does:
 1. Uses the same `ddk-min` container family used by KernelSU.
 2. Detects the prepared kernel build directory inside the container.
 3. Builds the out-of-tree module in `module/` with kbuild.
-4. Uploads the generated `hello.ko` as a workflow artifact.
+4. Builds Android loader tools in `loader/` via NDK (`init_module_loader_arm64`, `hello_comm_test_arm64`).
+5. Uploads the generated `hello.ko` and loader binaries as workflow artifacts.
+6. Auto-triggers `Pull Latest KO` to fetch the newest successful build artifact and republish it as `latest-ko`.
 
 Files:
 
 - `.github/workflows/build-lkm.yml`
+- `.github/workflows/pull-latest-ko.yml`
 - `module/hello.c`
 - `module/Makefile`
 - `loader/init_module_loader.c`
@@ -24,6 +27,14 @@ How to use:
 3. Run `Build External LKM`.
 4. Select the target `kmi`.
 5. Download the generated `.ko` artifact after the job finishes.
+
+Download latest ko to local:
+
+1. Run: `./scripts/download-latest-ko.sh`
+2. File will be saved to `out/latest.ko` (or pass custom output dir: `./scripts/download-latest-ko.sh <dir>`)
+3. Script will prefer artifact `latest-ko`, fallback to newest `*-lkm`
+4. Script can auto-read GitHub credential from your git credential helper (e.g. macOS keychain)
+5. If private repo or API rate limit: set token first `export GITHUB_TOKEN=<token>`
 
 External module build command used by the workflow:
 
