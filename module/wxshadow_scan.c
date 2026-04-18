@@ -94,11 +94,16 @@ int resolve_symbols(void)
     pr_info("wxshadow: [5/12] address translation...\n");
     kvar_memstart_addr = (s64 *)lookup_name_safe("memstart_addr");
     if (!kvar_memstart_addr) {
-        pr_err("wxshadow: memstart_addr not found\n");
-        return -1;
+        /*
+         * Some kernels (including certain GKI variants) hide memstart_addr
+         * from kallsyms. Our runtime conversions use __va/__pa, so this
+         * symbol is informational and should not be treated as fatal.
+         */
+        pr_warn("wxshadow: memstart_addr not found, continuing with __va/__pa path\n");
+    } else {
+        pr_info("wxshadow: memstart_addr=%px, value=0x%llx\n",
+                kvar_memstart_addr, *kvar_memstart_addr);
     }
-    pr_info("wxshadow: memstart_addr=%px, value=0x%llx\n",
-            kvar_memstart_addr, *kvar_memstart_addr);
 
     kvar_physvirt_offset = (s64 *)lookup_name_safe("physvirt_offset");
     if (kvar_physvirt_offset) {

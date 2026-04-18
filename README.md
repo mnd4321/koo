@@ -31,7 +31,11 @@ How to use:
 Download latest ko to local:
 
 1. Run: `./scripts/download-latest-ko.sh`
-2. File will be saved to `out/latest.ko` (or pass custom output dir: `./scripts/download-latest-ko.sh <dir>`)
+2. Files will be saved to:
+   - `out/latest.ko`
+   - `out/latest_init_module_loader_arm64` (when artifact includes loader)
+   - `out/latest_hello_comm_test_arm64` (when artifact includes loader)
+   (or pass custom output dir: `./scripts/download-latest-ko.sh <dir>`)
 3. Script will prefer artifact `latest-ko`, fallback to newest `*-lkm`
 4. Script can auto-read GitHub credential from your git credential helper (e.g. macOS keychain)
 5. If private repo or API rate limit: set token first `export GITHUB_TOKEN=<token>`
