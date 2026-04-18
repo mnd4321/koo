@@ -1064,7 +1064,7 @@ static void *copy_from_user_via_pte(void __user *ubuf, unsigned long len)
         return NULL;
     }
 
-    kbuf = kfunc_kzalloc(len, 0xcc0);
+    kbuf = safe_kzalloc(len, 0xcc0);
     if (!kbuf) {
         kfunc_mmput(caller_mm);
         return NULL;

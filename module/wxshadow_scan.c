@@ -331,25 +331,26 @@ int resolve_symbols(void)
 
     /* ===== Memory allocation ===== */
     pr_info("wxshadow: [12/12] memory alloc...\n");
+    kfunc_kzalloc_requires_zero = false;
     kfunc_kzalloc = (typeof(kfunc_kzalloc))lookup_name_safe("kzalloc");
-    if (!kfunc_kzalloc)
+    if (!kfunc_kzalloc) {
         kfunc_kzalloc = (typeof(kfunc_kzalloc))lookup_name_safe("__kmalloc");
-    if (!kfunc_kzalloc)
-        kfunc_kzalloc = (typeof(kfunc_kzalloc))lookup_name_safe("__kmalloc_node");
-    if (!kfunc_kzalloc)
-        kfunc_kzalloc = (typeof(kfunc_kzalloc))lookup_name_safe("kmalloc_trace");
+        if (kfunc_kzalloc)
+            kfunc_kzalloc_requires_zero = true;
+    }
     if (!kfunc_kzalloc) {
         pr_err("wxshadow: kzalloc/__kmalloc not found\n");
         return -1;
+    }
+    if (kfunc_kzalloc_requires_zero) {
+        pr_warn("wxshadow: using __kmalloc fallback, zeroing via safe_kzalloc\n");
     }
     pr_info("wxshadow: kzalloc resolved to %px\n", kfunc_kzalloc);
 
     /* Use lookup_name_safe to avoid module traversal hang */
     kfunc_kcalloc = (typeof(kfunc_kcalloc))lookup_name_safe("kcalloc");
-    if (!kfunc_kcalloc)
-        kfunc_kcalloc = (typeof(kfunc_kcalloc))lookup_name_safe("kmalloc_array");
     if (!kfunc_kcalloc) {
-        pr_warn("wxshadow: kcalloc/kmalloc_array not found, will use kzalloc wrapper\n");
+        pr_warn("wxshadow: kcalloc not found, will use safe_kcalloc wrapper\n");
     } else {
         pr_info("wxshadow: kcalloc resolved to %px\n", kfunc_kcalloc);
     }

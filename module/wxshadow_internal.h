@@ -106,6 +106,7 @@ extern void (*kfunc_kick_all_cpus_sync)(void);
 extern void *(*kfunc_kzalloc)(size_t size, unsigned int flags);
 extern void *(*kfunc_kcalloc)(size_t n, size_t size, unsigned int flags);
 extern void (*kfunc_kfree)(void *ptr);
+extern bool kfunc_kzalloc_requires_zero;
 
 extern long (*kfunc_copy_from_kernel_nofault)(void *dst,
                                               const void *src,
@@ -278,13 +279,30 @@ static inline void *mm_pgd(void *mm)
     return m ? (void *)m->pgd : NULL;
 }
 
+static inline void *safe_kzalloc(size_t size, unsigned int flags)
+{
+    void *p;
+
+    if (!kfunc_kzalloc)
+        return NULL;
+
+    p = kfunc_kzalloc(size, flags);
+    if (!p)
+        return NULL;
+
+    if (kfunc_kzalloc_requires_zero)
+        memset(p, 0, size);
+
+    return p;
+}
+
 static inline void *safe_kcalloc(size_t n, size_t size, unsigned int flags)
 {
     if (kfunc_kcalloc)
         return kfunc_kcalloc(n, size, flags);
     if (n != 0 && size > ((size_t)-1) / n)
         return NULL;
-    return kfunc_kzalloc(n * size, flags);
+    return safe_kzalloc(n * size, flags);
 }
 
 static inline unsigned long vaddr_to_paddr_at(unsigned long vaddr)

@@ -92,6 +92,7 @@ void (*kfunc_kick_all_cpus_sync)(void);
 void *(*kfunc_kzalloc)(size_t size, unsigned int flags);
 void *(*kfunc_kcalloc)(size_t n, size_t size, unsigned int flags);
 void (*kfunc_kfree)(void *ptr);
+bool kfunc_kzalloc_requires_zero;
 
 /* Safe memory access */
 long (*kfunc_copy_from_kernel_nofault)(void *dst, const void *src, size_t size);
@@ -239,7 +240,7 @@ struct wxshadow_page *wxshadow_create_page(void *mm, unsigned long page_addr)
     struct wxshadow_page *page;
 
     /* Allocate new page structure */
-    page = kfunc_kzalloc(sizeof(*page), 0xcc0);
+    page = safe_kzalloc(sizeof(*page), 0xcc0);
     if (!page)
         return NULL;
 
