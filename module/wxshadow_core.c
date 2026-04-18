@@ -68,6 +68,8 @@ void (*kfunc___flush_icache_range)(unsigned long start, unsigned long end);
 /* Debug/ptrace */
 void (*kfunc_user_enable_single_step)(void *task);
 void (*kfunc_user_disable_single_step)(void *task);
+void (*kfunc_kernel_enable_single_step)(struct pt_regs *regs);
+void (*kfunc_kernel_disable_single_step)(void);
 
 /* Direct handler hook */
 void *kfunc_brk_handler;

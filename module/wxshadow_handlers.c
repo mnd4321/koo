@@ -887,7 +887,7 @@ static int wxshadow_brk_handler_impl(struct pt_regs *regs, unsigned int esr)
     wxshadow_page_put(page_info);  /* release caller ref */
     kfunc_mmput(mm);
 
-    kfunc_user_enable_single_step(current);
+    wxshadow_enable_single_step_for_current(regs);
 
     pr_info("wxshadow: BRK handler EXIT success, single-step enabled\n");
     return DBG_HOOK_HANDLED;
@@ -932,7 +932,7 @@ static int wxshadow_step_handler_impl(struct pt_regs *regs, unsigned int esr)
              */
             if (page_info->dead) {
                 spin_unlock(&global_lock);
-                kfunc_user_disable_single_step(current);
+                wxshadow_disable_single_step_for_current(regs);
                 kfunc_mmput(mm);
                 return DBG_HOOK_HANDLED;
             }
@@ -965,7 +965,7 @@ static int wxshadow_step_handler_impl(struct pt_regs *regs, unsigned int esr)
         wxshadow_teardown_page(page_info, "VMA Gone (step handler)");
         wxshadow_page_put(page_info);
         kfunc_mmput(mm);
-        kfunc_user_disable_single_step(current);
+        wxshadow_disable_single_step_for_current(regs);
         return DBG_HOOK_HANDLED;
     }
 
@@ -973,7 +973,7 @@ static int wxshadow_step_handler_impl(struct pt_regs *regs, unsigned int esr)
         wxshadow_teardown_page(page_info, "Mapping Changed (step handler)");
         wxshadow_page_put(page_info);
         kfunc_mmput(mm);
-        kfunc_user_disable_single_step(current);
+        wxshadow_disable_single_step_for_current(regs);
         return DBG_HOOK_HANDLED;
     }
 
@@ -984,7 +984,7 @@ static int wxshadow_step_handler_impl(struct pt_regs *regs, unsigned int esr)
         wxshadow_teardown_page(page_info, "step restore shadow failed");
         wxshadow_page_put(page_info);
         kfunc_mmput(mm);
-        kfunc_user_disable_single_step(current);
+        wxshadow_disable_single_step_for_current(regs);
         return DBG_HOOK_HANDLED;
     }
 
@@ -999,7 +999,7 @@ static int wxshadow_step_handler_impl(struct pt_regs *regs, unsigned int esr)
     wxshadow_page_put(page_info);  /* release caller ref */
     kfunc_mmput(mm);
 
-    kfunc_user_disable_single_step(current);
+    wxshadow_disable_single_step_for_current(regs);
 
     return DBG_HOOK_HANDLED;
 }

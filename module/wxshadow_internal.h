@@ -88,6 +88,8 @@ extern void (*kfunc___flush_icache_range)(unsigned long start,
 
 extern void (*kfunc_user_enable_single_step)(void *task);
 extern void (*kfunc_user_disable_single_step)(void *task);
+extern void (*kfunc_kernel_enable_single_step)(struct pt_regs *regs);
+extern void (*kfunc_kernel_disable_single_step)(void);
 
 extern void *kfunc_brk_handler;
 extern void *kfunc_single_step_handler;
@@ -193,6 +195,37 @@ static inline bool is_kva(unsigned long addr)
 #else
     return addr >= PAGE_OFFSET;
 #endif
+}
+
+static inline bool wxshadow_has_single_step_api(void)
+{
+    if (kfunc_user_enable_single_step && kfunc_user_disable_single_step)
+        return true;
+    if (kfunc_kernel_enable_single_step && kfunc_kernel_disable_single_step)
+        return true;
+    return false;
+}
+
+static inline void wxshadow_enable_single_step_for_current(struct pt_regs *regs)
+{
+    if (kfunc_user_enable_single_step) {
+        kfunc_user_enable_single_step(current);
+        return;
+    }
+
+    if (kfunc_kernel_enable_single_step)
+        kfunc_kernel_enable_single_step(regs);
+}
+
+static inline void wxshadow_disable_single_step_for_current(struct pt_regs *regs)
+{
+    if (kfunc_user_disable_single_step) {
+        kfunc_user_disable_single_step(current);
+        return;
+    }
+
+    if (kfunc_kernel_disable_single_step)
+        kfunc_kernel_disable_single_step();
 }
 
 static inline bool safe_read_u64(unsigned long addr, u64 *out)
